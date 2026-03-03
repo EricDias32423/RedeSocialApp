@@ -23,18 +23,18 @@ export default function Login({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
-    if (!formData.usuario || !formData.senha) {
-      Alert.alert('Erro', 'Preencha todos os campos');
-      return;
-    }
+  if (!formData.usuario || !formData.senha) {
+    Alert.alert('Erro', 'Preencha todos os campos');
+    return;
+  }
 
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert('Sucesso', 'Login realizado!');
-    }, 1500);
-  };
-
+  setLoading(true);
+  setTimeout(() => {
+    setLoading(false);
+    // Mudar para Home em vez de só mostrar alerta
+    navigation.replace('Home');
+  }, 1500);
+};
   const handleChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
   };
