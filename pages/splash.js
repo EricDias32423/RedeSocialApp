@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { View, Image, StyleSheet } from "react-native";
 
-export default function splash({navigation}){
+export default function Splash({navigation}){
 
     useEffect(()=>{
 
