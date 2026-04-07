@@ -1,5 +1,6 @@
 // pages/CadastroScreen.js
 import React, { useState } from 'react';
+import axios from 'axios';
 import {
   View,
   Text,
@@ -17,67 +18,54 @@ import Botao from '../components/Botao';
 import ErrorMessage from '../components/ErrorMessage';
 
 export default function CadastroScreen({ navigation }) {
-  const [formData, setFormData] = useState({
-    nome: '',
-    email: '',
-    telefone: '',
-    senha: '',
-    confirmarSenha: '',
-  });
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [birth_date, setBirthDate] = useState('');
+  const [phone, setPhone] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showSenha, setShowSenha] = useState(false);
-  const [showConfirmSenha, setShowConfirmSenha] = useState(false);
-
-  const formatarTelefone = (text) => {
-    const numeros = text.replace(/\D/g, '');
-    if (numeros.length <= 11) {
-      if (numeros.length <= 2) {
-        return `(${numeros}`;
-      } else if (numeros.length <= 7) {
-        return `(${numeros.slice(0,2)}) ${numeros.slice(2)}`;
-      } else {
-        return `(${numeros.slice(0,2)}) ${numeros.slice(2,7)}-${numeros.slice(7,11)}`;
-      }
-    }
-    return text;
-  };
 
   const validarFormulario = () => {
-    let novosErros = {};
+    const novosErros = {};
     let valido = true;
 
-    if (!formData.nome.trim()) {
+    if (!name.trim()) {
       novosErros.nome = 'Nome é obrigatório';
       valido = false;
     }
 
-    if (!formData.email.trim()) {
+    if (!email.trim()) {
       novosErros.email = 'E-mail é obrigatório';
       valido = false;
-    } else if (!formData.email.includes('@')) {
+    } else if (!email.includes('@')) {
       novosErros.email = 'E-mail inválido';
       valido = false;
     }
 
-    if (!formData.telefone.trim()) {
+    if (!cpf.trim()) {
+      novosErros.cpf = 'CPF é obrigatório';
+      valido = false;
+    }
+
+    if (!birth_date.trim()) {
+      novosErros.birth_date = 'Data de nascimento é obrigatória';
+      valido = false;
+    }
+
+    if (!phone.trim()) {
       novosErros.telefone = 'Telefone é obrigatório';
       valido = false;
-    } else if (formData.telefone.length < 14) {
-      novosErros.telefone = 'Telefone incompleto';
-      valido = false;
     }
 
-    if (!formData.senha) {
+    if (!password) {
       novosErros.senha = 'Senha é obrigatória';
       valido = false;
-    } else if (formData.senha.length < 6) {
+    } else if (password.length < 6) {
       novosErros.senha = 'Senha deve ter pelo menos 6 caracteres';
-      valido = false;
-    }
-
-    if (formData.senha !== formData.confirmarSenha) {
-      novosErros.confirmarSenha = 'As senhas não coincidem';
       valido = false;
     }
 
@@ -85,36 +73,61 @@ export default function CadastroScreen({ navigation }) {
     return valido;
   };
 
-  const handleCadastro = () => {
-    if (validarFormulario()) {
-      setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
-        Alert.alert(
-          'Sucesso!',
-          'Cadastro realizado!',
-          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-        );
-      }, 1500);
-    }
-  };
+  function formatoApi(data) {
+    if (!data) return null;
+    const [dia, mes, ano] = data.split('/');
+    return `${ano}-${mes}-${dia}`;
+  }
 
-  const handleChange = (field, value) => {
-    if (field === 'telefone') {
-      value = formatarTelefone(value);
+  async function handleCadastro() {
+    if (!validarFormulario()) {
+      return;
     }
-    setFormData({ ...formData, [field]: value });
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: null });
+
+    setLoading(true);
+
+    const values = {
+      name: name,
+      email: email,
+      cpf: cpf,
+      birth_date: formatoApi(birth_date),
+      phone: phone,
+      password: password,
+      password_confirmation: password, // ✅ ADICIONE ESTA LINHA
+    };
+
+    // Se tiver avatar, adiciona (opcional)
+    if (avatar) {
+      values.avatar = avatar;
     }
-  };
+
+    try {
+      // ✅ ALTERE APENAS A URL: remova "/regular"
+      const response = await axios.post("http://10.0.2.2:8000/api/register", values);
+      console.log(response.data);
+
+      Alert.alert('Sucesso', 'Conta criada com sucesso');
+      navigation.replace('Login');
+    } catch (error) {
+      console.log("ERRO", error.response?.data?.errors || error.message);
+
+      if (error.response?.data?.errors) {
+        const erros = Object.values(error.response.data.errors).flat();
+        Alert.alert('Erro', erros.join('\n'));
+      } else {
+        Alert.alert('Erro', 'Erro ao cadastrar usuário');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <KeyboardAvoidingView
       style={styles.keyboardView}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
@@ -128,7 +141,7 @@ export default function CadastroScreen({ navigation }) {
 
           {/* Título */}
           <Text style={styles.title}>Criar Conta</Text>
-          
+
           {/* Subtítulo */}
           <View style={styles.subtitleContainer}>
             <MaterialIcons name="info" size={16} color="#6C757D" />
@@ -143,8 +156,8 @@ export default function CadastroScreen({ navigation }) {
               <Input
                 placeholder="Nome completo"
                 placeholderTextColor="#ADB5BD"
-                value={formData.nome}
-                onChangeText={(text) => handleChange('nome', text)}
+                value={name}
+                onChangeText={(text) => setName(text)}
                 style={styles.input}
               />
             </View>
@@ -156,8 +169,8 @@ export default function CadastroScreen({ navigation }) {
               <Input
                 placeholder="E-mail"
                 placeholderTextColor="#ADB5BD"
-                value={formData.email}
-                onChangeText={(text) => handleChange('email', text)}
+                value={email}
+                onChangeText={(text) => setEmail(text)}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 style={styles.input}
@@ -165,14 +178,44 @@ export default function CadastroScreen({ navigation }) {
             </View>
             <ErrorMessage message={errors.email} />
 
+            {/* Cpf */}
+            <View style={[styles.inputContainer, errors.cpf && styles.inputContainerError]}>
+              <MaterialIcons name="badge" size={20} color="#6C757D" style={styles.inputIcon} />
+              <Input
+                placeholder="CPF"
+                placeholderTextColor="#ADB5BD"
+                value={cpf}
+                onChangeText={(text) => setCpf(text)}
+                keyboardType="numeric"
+                maxLength={14}
+                style={styles.input}
+              />
+            </View>
+            <ErrorMessage message={errors.cpf} />
+
+            {/* Data de nascimento */}
+            <View style={[styles.inputContainer, errors.birth_date && styles.inputContainerError]}>
+              <MaterialIcons name="calendar-today" size={20} color="#6C757D" style={styles.inputIcon} />
+              <Input
+                placeholder="Data de nascimento (DD/MM/AAAA)"
+                placeholderTextColor="#ADB5BD"
+                value={birth_date}
+                onChangeText={(text) => setBirthDate(text)}
+                keyboardType="numeric"
+                maxLength={10}
+                style={styles.input}
+              />
+            </View>
+            <ErrorMessage message={errors.birth_date} />
+
             {/* Telefone */}
             <View style={[styles.inputContainer, errors.telefone && styles.inputContainerError]}>
               <MaterialIcons name="phone" size={20} color="#6C757D" style={styles.inputIcon} />
               <Input
                 placeholder="(99) 99999-9999"
                 placeholderTextColor="#ADB5BD"
-                value={formData.telefone}
-                onChangeText={(text) => handleChange('telefone', text)}
+                value={phone}
+                onChangeText={(text) => setPhone(text)}
                 keyboardType="phone-pad"
                 maxLength={15}
                 style={styles.input}
@@ -180,14 +223,27 @@ export default function CadastroScreen({ navigation }) {
             </View>
             <ErrorMessage message={errors.telefone} />
 
+            {/* Avatar */}
+            <View style={[styles.inputContainer, errors.avatar && styles.inputContainerError]}>
+              <MaterialIcons name="person" size={20} color="#6C757D" style={styles.inputIcon} />
+              <Input
+                placeholder="Avatar"
+                placeholderTextColor="#ADB5BD"
+                value={avatar}
+                onChangeText={(text) => setAvatar(text)}
+                style={styles.input}
+              />
+            </View>
+            
+
             {/* Senha */}
             <View style={[styles.inputContainer, errors.senha && styles.inputContainerError]}>
               <MaterialIcons name="lock" size={20} color="#6C757D" style={styles.inputIcon} />
               <Input
                 placeholder="Senha"
                 placeholderTextColor="#ADB5BD"
-                value={formData.senha}
-                onChangeText={(text) => handleChange('senha', text)}
+                value={password}
+                onChangeText={(text) => setPassword(text)}
                 secureTextEntry={!showSenha}
                 style={styles.input}
               />
@@ -203,30 +259,6 @@ export default function CadastroScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <ErrorMessage message={errors.senha} />
-
-            {/* Confirmar Senha */}
-            <View style={[styles.inputContainer, errors.confirmarSenha && styles.inputContainerError]}>
-              <MaterialIcons name="lock" size={20} color="#6C757D" style={styles.inputIcon} />
-              <Input
-                placeholder="Confirmar senha"
-                placeholderTextColor="#ADB5BD"
-                value={formData.confirmarSenha}
-                onChangeText={(text) => handleChange('confirmarSenha', text)}
-                secureTextEntry={!showConfirmSenha}
-                style={styles.input}
-              />
-              <TouchableOpacity
-                onPress={() => setShowConfirmSenha(!showConfirmSenha)}
-                style={styles.eyeIcon}
-              >
-                <MaterialIcons
-                  name={showConfirmSenha ? 'visibility' : 'visibility-off'}
-                  size={22}
-                  color="#6C757D"
-                />
-              </TouchableOpacity>
-            </View>
-            <ErrorMessage message={errors.confirmarSenha} />
 
             {/* Botão Cadastrar */}
             <Botao
