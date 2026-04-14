@@ -1,5 +1,5 @@
 // pages/Login.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,35 +9,95 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Container from '../components/Container';
 import Input from '../components/Input';
 import Botao from '../components/Botao';
+import axios from 'axios';
 
 export default function Login({ navigation }) {
-  const [formData, setFormData] = useState({
-    usuario: '',
-    senha: '',
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingToken, setCheckingToken] = useState(true);
+  const [showSenha, setShowSenha] = useState(false);
 
-  const handleLogin = () => {
-  if (!formData.usuario || !formData.senha) {
-    Alert.alert('Erro', 'Preencha todos os campos');
-    return;
-  }
+  // Verificar se já existe token salvo ao abrir o app
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        const token = await AsyncStorage.getItem('@auth_token');
+        const userData = await AsyncStorage.getItem('@user');
+        
+        if (token && userData) {
+          // Token existe, redirecionar para Home
+          console.log('Token encontrado, redirecionando...');
+          navigation.replace('Home');
+        }
+      } catch (error) {
+        console.log('Erro ao verificar token:', error);
+      } finally {
+        setCheckingToken(false);
+      }
+    };
 
-  setLoading(true);
-  setTimeout(() => {
-    setLoading(false);
-    // Mudar para Home em vez de só mostrar alerta
-    navigation.replace('Home');
-  }, 1500);
-};
-  const handleChange = (field, value) => {
-    setFormData({ ...formData, [field]: value });
+    checkToken();
+  }, []);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Erro', 'Preencha todos os campos');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await axios.post('http://10.0.2.2:8000/api/login', {
+        email: email,
+        password: password,
+      });
+
+      console.log('Resposta:', response.data);
+
+      if (response.data.success) {
+        // Salvar token e dados do usuário
+        await AsyncStorage.setItem('@auth_token', response.data.token);
+        await AsyncStorage.setItem('@user', JSON.stringify(response.data.user));
+        
+        Alert.alert('Sucesso', 'Login realizado!');
+        navigation.replace('Home');
+      } else {
+        Alert.alert('Erro', response.data.message || 'Falha no login');
+      }
+    } catch (error) {
+      console.log('Erro:', error.response?.data || error.message);
+      
+      if (error.response?.data?.message) {
+        Alert.alert('Erro', error.response.data.message);
+      } else if (error.response?.data?.errors) {
+        const erros = Object.values(error.response.data.errors).flat();
+        Alert.alert('Erro', erros.join('\n'));
+      } else {
+        Alert.alert('Erro', 'Erro ao fazer login. Verifique sua conexão.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Tela de carregamento enquanto verifica token
+  if (checkingToken) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6C757D" />
+        <Text style={styles.loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -62,37 +122,51 @@ export default function Login({ navigation }) {
           {/* Subtítulo */}
           <View style={styles.subtitleContainer}>
             <MaterialIcons name="email" size={16} color="#6C757D" />
-            <Text style={styles.subtitle}> Email, telefone ou usuário</Text>
+            <Text style={styles.subtitle}> Faça login para continuar</Text>
           </View>
 
           {/* Formulário */}
           <View style={styles.form}>
+            {/* E-mail */}
             <View style={styles.inputContainer}>
-              <MaterialIcons name="person" size={20} color="#6C757D" style={styles.inputIcon} />
+              <MaterialIcons name="email" size={20} color="#6C757D" style={styles.inputIcon} />
               <Input
-                placeholder="Email, telefone ou usuário"
+                placeholder="E-mail"
                 placeholderTextColor="#ADB5BD"
-                value={formData.usuario}
-                onChangeText={(text) => handleChange('usuario', text)}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
                 style={styles.input}
               />
             </View>
 
+            {/* Senha com botão de mostrar/ocultar */}
             <View style={styles.inputContainer}>
               <MaterialIcons name="lock" size={20} color="#6C757D" style={styles.inputIcon} />
               <Input
                 placeholder="Senha"
                 placeholderTextColor="#ADB5BD"
-                value={formData.senha}
-                onChangeText={(text) => handleChange('senha', text)}
-                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showSenha}
                 style={styles.input}
               />
+              <TouchableOpacity
+                onPress={() => setShowSenha(!showSenha)}
+                style={styles.eyeIcon}
+              >
+                <MaterialIcons
+                  name={showSenha ? 'visibility' : 'visibility-off'}
+                  size={22}
+                  color="#6C757D"
+                />
+              </TouchableOpacity>
             </View>
 
             {/* Botão Entrar */}
             <Botao
-              txtBtn="Entrar"
+              txtBtn="ENTRAR"
               onPress={handleLogin}
               loading={loading}
             />
@@ -107,7 +181,7 @@ export default function Login({ navigation }) {
             {/* Botão Google */}
             <TouchableOpacity 
               style={styles.googleButton}
-              onPress={() => Alert.alert('Google', 'Login com Google')}
+              onPress={() => Alert.alert('Google', 'Funcionalidade em breve')}
             >
               <MaterialIcons name="android" size={24} color="#6C757D" />
               <Text style={styles.googleButtonText}>Continuar com Google</Text>
@@ -124,7 +198,7 @@ export default function Login({ navigation }) {
             {/* Link esqueceu senha */}
             <TouchableOpacity 
               style={styles.forgotContainer}
-              onPress={() => Alert.alert('Recuperar', 'Esqueceu a senha')}
+              onPress={() => Alert.alert('Recuperar senha', 'Funcionalidade em breve')}
             >
               <Text style={styles.forgotText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
@@ -142,6 +216,17 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#6C757D',
   },
   logoContainer: {
     alignItems: 'center',
@@ -188,6 +273,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E9ECEF',
     height: 50,
+    position: 'relative',
   },
   inputIcon: {
     paddingHorizontal: 10,
@@ -197,6 +283,13 @@ const styles = StyleSheet.create({
     height: 50,
     fontSize: 16,
     color: '#212529',
+    paddingRight: 40,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 10,
+    top: 12,
+    padding: 5,
   },
   dividerContainer: {
     flexDirection: 'row',

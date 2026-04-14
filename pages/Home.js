@@ -1,5 +1,5 @@
 // pages/Home.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,59 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Container from '../components/Container';
 
 export default function Home({ navigation }) {
+  const [userName, setUserName] = useState('Usuário');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Carregar dados do usuário ao abrir a tela
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('@user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        // Pega o nome do usuário (pode ser 'name' para usuário comum ou 'ong_name' para ONG)
+        setUserName(user.name || user.ong_name || 'Usuário');
+      }
+    } catch (error) {
+      console.log('Erro ao carregar usuário:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Função para fazer logout
-  const handleLogout = () => {
-    navigation.replace('Login');
+  const handleLogout = async () => {
+    Alert.alert(
+      'Sair',
+      'Deseja realmente sair da sua conta?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Sair', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Remover token e dados do usuário
+              await AsyncStorage.removeItem('@auth_token');
+              await AsyncStorage.removeItem('@user');
+              navigation.replace('Login');
+            } catch (error) {
+              console.log('Erro ao fazer logout:', error);
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -25,7 +70,9 @@ export default function Home({ navigation }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Olá,</Text>
-          <Text style={styles.userName}>Usuário</Text>
+          <Text style={styles.userName}>
+            {loading ? 'Carregando...' : userName}
+          </Text>
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
           <MaterialIcons name="logout" size={24} color="#6C757D" />
