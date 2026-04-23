@@ -32,7 +32,7 @@ export default function Login({ navigation }) {
   setTimeout(() => {
     setLoading(false);
     // Mudar para Home em vez de só mostrar alerta
-    navigation.replace('Home');
+    navigation.replace('cep');
   }, 1500);
 };
   const handleChange = (field, value) => {

@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import CadastroScreen from './pages/CadastroScreen';
 import Home from './pages/Home';
 import splash from './pages/splash';
+import cep from './pages/cep';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,6 +23,7 @@ export default function App() {
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Cadastro" component={CadastroScreen} />
         <Stack.Screen name="Home" component={Home} />
+        <Stack.Screen name="cep" component={cep} />
       </Stack.Navigator>
     </NavigationContainer>
   );
