@@ -6,6 +6,8 @@ import Login from './pages/Login';
 import CadastroScreen from './pages/CadastroScreen';
 import Home from './pages/Home';
 import Splash from './pages/Splash';
+import CadastrarPostScreen from './pages/CadastrarPostScreen';
+import EditPostScreen from './pages/EditPostScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,6 +24,8 @@ export default function App() {
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Cadastro" component={CadastroScreen} />
         <Stack.Screen name="Home" component={Home} />
+        <Stack.Screen name="CadastrarPost" component={CadastrarPostScreen} />
+        <Stack.Screen name="EditPost" component={EditPostScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

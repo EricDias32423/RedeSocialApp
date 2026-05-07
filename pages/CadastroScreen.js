@@ -1,6 +1,5 @@
-// pages/CadastroScreen.js
-import React, { useState } from 'react';
-import axios from 'axios';
+// pages/Login.js
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,116 +9,94 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Container from '../components/Container';
 import Input from '../components/Input';
 import Botao from '../components/Botao';
-import ErrorMessage from '../components/ErrorMessage';
+import axios from 'axios';
 
-export default function CadastroScreen({ navigation }) {
-  const [name, setName] = useState('');
+export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
-  const [cpf, setCpf] = useState('');
-  const [birth_date, setBirthDate] = useState('');
-  const [phone, setPhone] = useState('');
-  const [avatar, setAvatar] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [checkingToken, setCheckingToken] = useState(true);
   const [showSenha, setShowSenha] = useState(false);
 
-  const validarFormulario = () => {
-    const novosErros = {};
-    let valido = true;
+  // Verificar se já existe token salvo ao abrir o app
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        const token = await AsyncStorage.getItem('@auth_token');
+        const userData = await AsyncStorage.getItem('@user');
+        
+        if (token && userData) {
+          // Token existe, redirecionar para Home
+          console.log('Token encontrado, redirecionando...');
+          navigation.replace('Home');
+        }
+      } catch (error) {
+        console.log('Erro ao verificar token:', error);
+      } finally {
+        setCheckingToken(false);
+      }
+    };
 
-    if (!name.trim()) {
-      novosErros.nome = 'Nome é obrigatório';
-      valido = false;
-    }
+    checkToken();
+  }, []);
 
-    if (!email.trim()) {
-      novosErros.email = 'E-mail é obrigatório';
-      valido = false;
-    } else if (!email.includes('@')) {
-      novosErros.email = 'E-mail inválido';
-      valido = false;
-    }
-
-    if (!cpf.trim()) {
-      novosErros.cpf = 'CPF é obrigatório';
-      valido = false;
-    }
-
-    if (!birth_date.trim()) {
-      novosErros.birth_date = 'Data de nascimento é obrigatória';
-      valido = false;
-    }
-
-    if (!phone.trim()) {
-      novosErros.telefone = 'Telefone é obrigatório';
-      valido = false;
-    }
-
-    if (!password) {
-      novosErros.senha = 'Senha é obrigatória';
-      valido = false;
-    } else if (password.length < 6) {
-      novosErros.senha = 'Senha deve ter pelo menos 6 caracteres';
-      valido = false;
-    }
-
-    setErrors(novosErros);
-    return valido;
-  };
-
-  function formatoApi(data) {
-    if (!data) return null;
-    const [dia, mes, ano] = data.split('/');
-    return `${ano}-${mes}-${dia}`;
-  }
-
-  async function handleCadastro() {
-    if (!validarFormulario()) {
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Erro', 'Preencha todos os campos');
       return;
     }
 
     setLoading(true);
 
-    const values = {
-      name: name,
-      email: email,
-      cpf: cpf,
-      birth_date: formatoApi(birth_date),
-      phone: phone,
-      password: password,
-      password_confirmation: password, // ✅ ADICIONE ESTA LINHA
-    };
-
-    // Se tiver avatar, adiciona (opcional)
-    if (avatar) {
-      values.avatar = avatar;
-    }
-
     try {
-      // ✅ ALTERE APENAS A URL: remova "/regular"
-      const response = await axios.post("http://10.0.2.2:8000/api/register", values);
-      console.log(response.data);
+      const response = await axios.post('http://10.0.2.2:8000/api/posts', {
+        email: email,
+        password: password,
+      });
 
-      Alert.alert('Sucesso', 'Conta criada com sucesso');
-      navigation.replace('Login');
+      console.log('Resposta:', response.data);
+
+      if (response.data.success) {
+        // Salvar token e dados do usuário
+        await AsyncStorage.setItem('@auth_token', response.data.token);
+        await AsyncStorage.setItem('@user', JSON.stringify(response.data.user));
+        
+        Alert.alert('Sucesso', 'Login realizado!');
+        navigation.replace('Home');
+      } else {
+        Alert.alert('Erro', response.data.message || 'Falha no login');
+      }
     } catch (error) {
-      console.log("ERRO", error.response?.data?.errors || error.message);
-
-      if (error.response?.data?.errors) {
+      console.log('Erro:', error.response?.data || error.message);
+      
+      if (error.response?.data?.message) {
+        Alert.alert('Erro', error.response.data.message);
+      } else if (error.response?.data?.errors) {
         const erros = Object.values(error.response.data.errors).flat();
         Alert.alert('Erro', erros.join('\n'));
       } else {
-        Alert.alert('Erro', 'Erro ao cadastrar usuário');
+        Alert.alert('Erro', 'Erro ao fazer login. Verifique sua conexão.');
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  // Tela de carregamento enquanto verifica token
+  if (checkingToken) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6C757D" />
+        <Text style={styles.loadingText}>Carregando...</Text>
+      </View>
+    );
   }
 
   return (
@@ -127,7 +104,7 @@ export default function CadastroScreen({ navigation }) {
       style={styles.keyboardView}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
+      <ScrollView 
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
@@ -135,115 +112,43 @@ export default function CadastroScreen({ navigation }) {
           {/* Logo ou ícone */}
           <View style={styles.logoContainer}>
             <View style={styles.logoCircle}>
-              <MaterialIcons name="person-add" size={50} color="#495057" />
+              <MaterialIcons name="people" size={50} color="#495057" />
             </View>
           </View>
 
           {/* Título */}
-          <Text style={styles.title}>Criar Conta</Text>
-
+          <Text style={styles.title}>Rede Social</Text>
+          
           {/* Subtítulo */}
           <View style={styles.subtitleContainer}>
-            <MaterialIcons name="info" size={16} color="#6C757D" />
-            <Text style={styles.subtitle}> Preencha seus dados</Text>
+            <MaterialIcons name="email" size={16} color="#6C757D" />
+            <Text style={styles.subtitle}> Faça login para continuar</Text>
           </View>
 
           {/* Formulário */}
           <View style={styles.form}>
-            {/* Nome */}
-            <View style={[styles.inputContainer, errors.nome && styles.inputContainerError]}>
-              <MaterialIcons name="person" size={20} color="#6C757D" style={styles.inputIcon} />
-              <Input
-                placeholder="Nome completo"
-                placeholderTextColor="#ADB5BD"
-                value={name}
-                onChangeText={(text) => setName(text)}
-                style={styles.input}
-              />
-            </View>
-            <ErrorMessage message={errors.nome} />
-
             {/* E-mail */}
-            <View style={[styles.inputContainer, errors.email && styles.inputContainerError]}>
+            <View style={styles.inputContainer}>
               <MaterialIcons name="email" size={20} color="#6C757D" style={styles.inputIcon} />
               <Input
                 placeholder="E-mail"
                 placeholderTextColor="#ADB5BD"
                 value={email}
-                onChangeText={(text) => setEmail(text)}
+                onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 style={styles.input}
               />
             </View>
-            <ErrorMessage message={errors.email} />
 
-            {/* Cpf */}
-            <View style={[styles.inputContainer, errors.cpf && styles.inputContainerError]}>
-              <MaterialIcons name="badge" size={20} color="#6C757D" style={styles.inputIcon} />
-              <Input
-                placeholder="CPF"
-                placeholderTextColor="#ADB5BD"
-                value={cpf}
-                onChangeText={(text) => setCpf(text)}
-                keyboardType="numeric"
-                maxLength={14}
-                style={styles.input}
-              />
-            </View>
-            <ErrorMessage message={errors.cpf} />
-
-            {/* Data de nascimento */}
-            <View style={[styles.inputContainer, errors.birth_date && styles.inputContainerError]}>
-              <MaterialIcons name="calendar-today" size={20} color="#6C757D" style={styles.inputIcon} />
-              <Input
-                placeholder="Data de nascimento (DD/MM/AAAA)"
-                placeholderTextColor="#ADB5BD"
-                value={birth_date}
-                onChangeText={(text) => setBirthDate(text)}
-                keyboardType="numeric"
-                maxLength={10}
-                style={styles.input}
-              />
-            </View>
-            <ErrorMessage message={errors.birth_date} />
-
-            {/* Telefone */}
-            <View style={[styles.inputContainer, errors.telefone && styles.inputContainerError]}>
-              <MaterialIcons name="phone" size={20} color="#6C757D" style={styles.inputIcon} />
-              <Input
-                placeholder="(99) 99999-9999"
-                placeholderTextColor="#ADB5BD"
-                value={phone}
-                onChangeText={(text) => setPhone(text)}
-                keyboardType="phone-pad"
-                maxLength={15}
-                style={styles.input}
-              />
-            </View>
-            <ErrorMessage message={errors.telefone} />
-
-            {/* Avatar */}
-            <View style={[styles.inputContainer, errors.avatar && styles.inputContainerError]}>
-              <MaterialIcons name="person" size={20} color="#6C757D" style={styles.inputIcon} />
-              <Input
-                placeholder="Avatar"
-                placeholderTextColor="#ADB5BD"
-                value={avatar}
-                onChangeText={(text) => setAvatar(text)}
-                style={styles.input}
-              />
-            </View>
-            
-
-            {/* Senha */}
-            <View style={[styles.inputContainer, errors.senha && styles.inputContainerError]}>
+            {/* Senha com botão de mostrar/ocultar */}
+            <View style={styles.inputContainer}>
               <MaterialIcons name="lock" size={20} color="#6C757D" style={styles.inputIcon} />
               <Input
                 placeholder="Senha"
                 placeholderTextColor="#ADB5BD"
                 value={password}
-                onChangeText={(text) => setPassword(text)}
+                onChangeText={setPassword}
                 secureTextEntry={!showSenha}
                 style={styles.input}
               />
@@ -258,22 +163,45 @@ export default function CadastroScreen({ navigation }) {
                 />
               </TouchableOpacity>
             </View>
-            <ErrorMessage message={errors.senha} />
 
-            {/* Botão Cadastrar */}
+            {/* Botão Entrar */}
             <Botao
-              txtBtn="CADASTRAR"
-              onPress={handleCadastro}
+              txtBtn="ENTRAR"
+              onPress={handleLogin}
               loading={loading}
             />
 
-            {/* Link para login */}
-            <View style={styles.loginContainer}>
-              <Text style={styles.loginText}>Já tem uma conta? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.loginLink}>Faça login</Text>
+            {/* Divisor "ou" */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>ou</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Botão Google */}
+            <TouchableOpacity 
+              style={styles.googleButton}
+              onPress={() => Alert.alert('Google', 'Funcionalidade em breve')}
+            >
+              <MaterialIcons name="android" size={24} color="#6C757D" />
+              <Text style={styles.googleButtonText}>Continuar com Google</Text>
+            </TouchableOpacity>
+
+            {/* Link para cadastro */}
+            <View style={styles.registerContainer}>
+              <Text style={styles.registerText}>Não possui conta? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Cadastro')}>
+                <Text style={styles.registerLink}>Cadastre-se</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Link esqueceu senha */}
+            <TouchableOpacity 
+              style={styles.forgotContainer}
+              onPress={() => Alert.alert('Recuperar senha', 'Funcionalidade em breve')}
+            >
+              <Text style={styles.forgotText}>Esqueceu a senha?</Text>
+            </TouchableOpacity>
           </View>
         </Container>
       </ScrollView>
@@ -289,9 +217,20 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#6C757D',
+  },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 50,
     marginBottom: 20,
   },
   logoCircle: {
@@ -330,14 +269,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
-    marginBottom: 5,
+    marginBottom: 15,
     borderWidth: 1,
     borderColor: '#E9ECEF',
     height: 50,
     position: 'relative',
-  },
-  inputContainerError: {
-    borderColor: '#DC3545',
   },
   inputIcon: {
     paddingHorizontal: 10,
@@ -355,19 +291,60 @@ const styles = StyleSheet.create({
     top: 12,
     padding: 5,
   },
-  loginContainer: {
+  dividerContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 30,
+    alignItems: 'center',
+    marginVertical: 20,
   },
-  loginText: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E9ECEF',
+  },
+  dividerText: {
+    marginHorizontal: 10,
     color: '#6C757D',
     fontSize: 14,
   },
-  loginLink: {
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#DEE2E6',
+    marginBottom: 20,
+  },
+  googleButtonText: {
+    color: '#495057',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  registerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  registerText: {
+    color: '#6C757D',
+    fontSize: 14,
+  },
+  registerLink: {
     color: '#495057',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  forgotContainer: {
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 30,
+  },
+  forgotText: {
+    color: '#495057',
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 });

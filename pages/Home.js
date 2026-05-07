@@ -1,8 +1,11 @@
-import { useState, useEffect, use } from "react";
+import React, { useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+
 import axios from "axios";
 import Container from "../components/Container";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "../app/services/api";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -15,35 +18,40 @@ import {
   StatusBar,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 
-export default function Lista(navigation) {
+export default function Lista({ navigation }) {
   const [dados, setDados] = useState([]);
   const [modal, setModal] = useState(false);
   const [recebeDado, setRecebeDado] = useState("");
   const [userName, setUserName] = useState("Usuário");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function Buscar() {
-      try {
-        const response = await axios.get("http://10.0.2.2:8000/api/feed");
-        console.log("Resposta da API:", response.data.data);
-        setDados(response.data.data);
-      } catch (error) {
-        console.error(
-          "Erro ao buscar dados:",
-          error?.response?.data || error.message,
-        );
-      }
-    }
-    loadUserData();
-    Buscar();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      const Buscar = async () => {
+        try {
+          const response = await axios.get("http://10.0.2.2:8000/api/posts");
+          console.log("Resposta da API:", response.data.data.data);
+          setDados(response.data.data.data);
+        } catch (error) {
+          console.error(
+            "Erro ao buscar dados:",
+            error?.response?.data || error.message,
+          );
+        }
+      };
+
+      loadUserData();
+      Buscar();
+    }, [])
+  );
 
   const renderItem = ({ item }) => (
     <Pressable
       onPress={() => {
+        console.log('Post selecionado:', item); // Debug: verificar estrutura do post
         setRecebeDado(item);
         setModal(!modal);
       }}
@@ -117,6 +125,38 @@ export default function Lista(navigation) {
     ]);
   };
 
+  // Função para deletar post
+  const handleDeletePost = async (postId) => {
+    console.log('Iniciando processo de deletar post:', postId);
+    Alert.alert(
+      "Deletar Post",
+      "Tem certeza que deseja deletar este post? Esta ação não pode ser desfeita.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Deletar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log('Enviando requisição DELETE para:', `/posts/${postId}`);
+              await api.delete(`/posts/${postId}`);
+              console.log('Post deletado com sucesso:', postId);
+
+              // Atualizar a lista removendo o post deletado
+              setDados(prevDados => prevDados.filter(post => post.id !== postId));
+              setModal(false);
+
+              Alert.alert("Sucesso", "Post deletado com sucesso!");
+            } catch (error) {
+              console.error("Erro ao deletar post:", error);
+              Alert.alert("Erro", "Não foi possível deletar o post. Tente novamente.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Container>
       <StatusBar backgroundColor="#F8F9FA" barStyle="dark-content" />
@@ -157,33 +197,52 @@ export default function Lista(navigation) {
           animationType="slide"
           onRequestClose={() => setModal(!modal)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Detalhes do Post</Text>
-                <TouchableOpacity onPress={() => setModal(false)}>
-                  <MaterialIcons name="close" size={24} color="#6C757D" />
+          <ScrollView>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                {/* Header */}
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Detalhes do Post</Text>
+                  <TouchableOpacity onPress={() => setModal(false)}>
+                    <MaterialIcons name="close" size={24} color="#6C757D" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Conteúdo */}
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalPostTitle}>{recebeDado.title}</Text>
+                  <Text style={styles.modalPostContent}>
+                    {recebeDado.content}
+                  </Text>
+                </View>
+
+                {/* Botões */}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={() => {
+                      setModal(false);
+                      navigation.navigate('EditPost', { post: recebeDado });
+                    }}
+                  >
+                    <Text style={styles.modalButtonText}>Editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.deleteModalButton]}
+                    onPress={() => handleDeletePost(recebeDado.id)}
+                  >
+                    <Text style={styles.modalButtonText}>Deletar</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={styles.modalButtonSecondary}
+                  onPress={() => setModal(false)}
+                >
+                  <Text style={styles.modalButtonTextSecondary}>Fechar</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Conteúdo */}
-              <View style={styles.modalContent}>
-                <Text style={styles.modalPostTitle}>{recebeDado.title}</Text>
-                <Text style={styles.modalPostContent}>
-                  {recebeDado.content}
-                </Text>
-              </View>
-
-              {/* Botão */}
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setModal(false)}
-              >
-                <Text style={styles.modalButtonText}>Fechar</Text>
-              </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </Modal>
       </SafeAreaView>
 
@@ -197,18 +256,9 @@ export default function Lista(navigation) {
           <MaterialIcons name="search" size={28} color="#ADB5BD" />
           <Text style={[styles.navText, styles.navTextInactive]}>Buscar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('CadastrarPost')}>
           <MaterialIcons name="add-circle" size={28} color="#ADB5BD" />
           <Text style={[styles.navText, styles.navTextInactive]}>Postar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => navigation.navigate("HomeScreen")}
-        >
-          <MaterialIcons name="favorite" size={28} color="#ADB5BD" />
-          <Text style={[styles.navText, styles.navTextInactive]}>
-            Atividade
-          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <MaterialIcons name="person" size={28} color="#ADB5BD" />
@@ -439,10 +489,29 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: "center",
+    flex: 1,
+    marginRight: 10,
   },
 
-  modalButtonText: {
-    color: "#FFFFFF",
+  deleteModalButton: {
+    backgroundColor: "#DC3545",
+  },
+
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+
+  modalButtonSecondary: {
+    backgroundColor: "#E9ECEF",
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+
+  modalButtonTextSecondary: {
+    color: "#6C757D",
     fontWeight: "600",
   },
 });

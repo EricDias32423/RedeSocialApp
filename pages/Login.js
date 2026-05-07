@@ -56,7 +56,7 @@ export default function Login({ navigation }) {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://10.0.2.2:8000/api/login', {
+      const response = await axios.post('http://10.0.2.2:8000/api/ong/login', {
         email: email,
         password: password,
       });
